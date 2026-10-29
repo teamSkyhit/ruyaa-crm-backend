@@ -1,0 +1,749 @@
+openapi: 3.0.3
+info:
+  title: Ruyaa Essentials public API
+  version: "2026-10-28"
+  description: |
+    Storefront contract. The readable guide is docs/public-api.md.
+    Money fields are decimal strings. Send X-API-Key on every /api/public call.
+    Do not put the key in browser code.
+servers:
+  - url: http://localhost:8001
+    description: Local development. The production host is provided separately.
+tags:
+  - name: Catalog
+  - name: Checkout
+  - name: Content
+  - name: Customer
+components:
+  securitySchemes:
+    publicApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    customerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+    CustomerError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    Money:
+      type: string
+      example: "399.00"
+      description: Decimal string.
+    CategoryRef:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+    ProductSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        sku: { type: string }
+        sortOrder: { type: integer }
+        mrp: { $ref: '#/components/schemas/Money' }
+        salePrice: { $ref: '#/components/schemas/Money', nullable: true }
+        weight: { type: string, description: Default weight label, such as 125g. }
+        description: { type: string, nullable: true }
+        featuredIngredients:
+          type: array
+          items: { type: string }
+        fullIngredients: { type: string, nullable: true }
+        shelfLife: { type: string, nullable: true }
+        howToUse: { type: string, nullable: true }
+        storageInstructions: { type: string, nullable: true }
+        manufacturer: { type: string, nullable: true }
+        licenceNumber: { type: string, nullable: true }
+        image: { type: string, nullable: true, description: Cover picture URL. }
+        images:
+          type: array
+          items: { type: string }
+        quantity: { type: integer }
+        isActive: { type: boolean }
+        showOnWebsite: { type: boolean, description: Hide the product on the storefront when false. The list still returns it. }
+        metaTitle: { type: string, nullable: true }
+        metaDescription: { type: string, nullable: true }
+        canonicalUrl: { type: string, nullable: true }
+        ogTitle: { type: string, nullable: true }
+        ogDescription: { type: string, nullable: true }
+        ogImage: { type: string, nullable: true }
+        imageAlt: { type: string, nullable: true }
+        robotsIndex: { type: boolean }
+        robotsFollow: { type: boolean }
+        category: { $ref: '#/components/schemas/CategoryRef' }
+        subcategory: { $ref: '#/components/schemas/CategoryRef', nullable: true }
+    ProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProductSummary'
+        - type: object
+          properties:
+            variants:
+              type: array
+              description: Weight options. Required at checkout when this array is not empty.
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string, example: 125g }
+                  sku: { type: string, nullable: true }
+                  price: { $ref: '#/components/schemas/Money' }
+                  compareAtPrice: { $ref: '#/components/schemas/Money', nullable: true }
+                  quantity: { type: integer }
+                  isActive: { type: boolean }
+                  sortOrder: { type: integer }
+                  usesProductGallery: { type: boolean }
+                  media:
+                    type: array
+                    items: { $ref: '#/components/schemas/MediaItem' }
+            gallery:
+              type: array
+              items: { $ref: '#/components/schemas/MediaItem' }
+            benefits:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  title: { type: string }
+                  description: { type: string }
+                  image: { type: string, nullable: true }
+                  imageAlt: { type: string, nullable: true }
+                  sortOrder: { type: integer }
+            highlights:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  title: { type: string }
+                  description: { type: string, nullable: true }
+                  image: { type: string, nullable: true }
+                  imageAlt: { type: string, nullable: true }
+                  sortOrder: { type: integer }
+            relatedProducts:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
+                  slug: { type: string }
+                  image: { type: string, nullable: true }
+                  price: { $ref: '#/components/schemas/Money' }
+                  mrp: { $ref: '#/components/schemas/Money' }
+                  available: { type: boolean }
+                  sortOrder: { type: integer }
+            packs:
+              type: array
+              description: Pack prices do not follow the selected weight.
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  title: { type: string }
+                  subtitle: { type: string, nullable: true }
+                  badge: { type: string, nullable: true }
+                  image: { type: string, nullable: true }
+                  price: { $ref: '#/components/schemas/Money' }
+                  compareAtPrice: { $ref: '#/components/schemas/Money', nullable: true }
+                  sortOrder: { type: integer }
+            faqs:
+              type: array
+              description: Active FAQs for this product plus FAQs assigned to every product.
+              items:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  question: { type: string }
+                  answer: { type: string }
+                  sortOrder: { type: integer }
+    MediaItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        variantId: { type: string, format: uuid, nullable: true }
+        kind: { type: string, enum: [IMAGE, VIDEO] }
+        url: { type: string }
+        thumbnailUrl: { type: string, nullable: true }
+        altText: { type: string, nullable: true }
+        sortOrder: { type: integer }
+    ShippingAddress:
+      type: object
+      required: [line1, city, state, pincode]
+      properties:
+        name: { type: string }
+        phone: { type: string }
+        line1: { type: string }
+        line2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        pincode: { type: string, pattern: '^[0-9]{6}$' }
+    CreateOrder:
+      type: object
+      required: [customerName, customerEmail, customerPhone, paymentMethod, items]
+      properties:
+        customerName: { type: string }
+        customerEmail: { type: string, format: email }
+        customerPhone: { type: string }
+        paymentMethod: { type: string, enum: [RAZORPAY, COD] }
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId: { type: string, format: uuid }
+              variantId: { type: string, format: uuid, description: Required when the product has active weights. }
+              quantity: { type: integer, minimum: 1 }
+        shippingAddress: { $ref: '#/components/schemas/ShippingAddress' }
+        addressId: { type: string, format: uuid, description: Saved address. Requires a customer bearer token. }
+        discountCode: { type: string }
+        notes: { type: string }
+        idempotencyKey: { type: string, format: uuid, description: Reuse on retry to avoid a duplicate order. }
+paths:
+  /api/public/site-settings:
+    get:
+      tags: [Catalog]
+      summary: Public site content and shipping rules
+      security: [{ publicApiKey: [] }]
+      responses:
+        '200':
+          description: Public settings. Secrets are never included.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: object }
+        '401':
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/banners:
+    get:
+      tags: [Catalog]
+      summary: Active banners
+      description: Active banners whose validFrom and validUntil window includes now. A null date leaves that side open.
+      security: [{ publicApiKey: [] }]
+      responses:
+        '200':
+          description: Banner list
+  /api/public/categories:
+    get:
+      tags: [Catalog]
+      summary: Active categories and subcategories
+      description: image is optional on a category and on a subcategory.
+      security: [{ publicApiKey: [] }]
+      responses:
+        '200':
+          description: Category tree
+  /api/public/products:
+    get:
+      tags: [Catalog]
+      summary: Product listing
+      description: Does not include variants, benefits, packs, or faqs. Hide rows with showOnWebsite false.
+      security: [{ publicApiKey: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+        - { name: category, in: query, schema: { type: string }, description: Category slug }
+        - { name: subcategory, in: query, schema: { type: string }, description: Subcategory slug }
+        - { name: search, in: query, schema: { type: string } }
+        - name: sortBy
+          in: query
+          schema: { type: string, enum: [newest, price_asc, price_desc, popularity, trending], default: newest }
+      responses:
+        '200':
+          description: Page of products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ProductSummary' }
+                  pagination:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      page: { type: integer }
+                      limit: { type: integer }
+                      pages: { type: integer }
+  /api/public/products/{slug}:
+    get:
+      tags: [Catalog]
+      summary: Product page payload
+      security: [{ publicApiKey: [] }]
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Product, weights, benefits, packs, and FAQs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/ProductDetail' }
+        '404':
+          description: Unknown or inactive slug
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                success: false
+                error: Product not found
+  /api/public/faqs:
+    get:
+      tags: [Content]
+      summary: All active FAQs
+      description: product is null when the answer applies to every product.
+      security: [{ publicApiKey: [] }]
+      responses:
+        '200':
+          description: FAQ list
+  /api/public/blogs:
+    get:
+      tags: [Content]
+      summary: Published blogs
+      description: Success body is { blogs, pagination } with no success wrapper.
+      security: [{ publicApiKey: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 12, maximum: 50 } }
+        - { name: tag, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Blog page
+  /api/public/blogs/{slug}:
+    get:
+      tags: [Content]
+      summary: One published blog, including HTML body
+      description: Success returns the blog object directly.
+      security: [{ publicApiKey: [] }]
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Blog
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/reviews/{productSlug}:
+    get:
+      tags: [Content]
+      summary: Approved reviews and average rating
+      security: [{ publicApiKey: [] }]
+      parameters:
+        - { name: productSlug, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Reviews. avgRating is null when there are none.
+  /api/public/reviews:
+    post:
+      tags: [Content]
+      summary: Submit a review for CRM approval
+      security: [{ publicApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, customerName, customerEmail, rating]
+              properties:
+                productId: { type: string, format: uuid }
+                customerName: { type: string }
+                customerEmail: { type: string, format: email }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                orderId: { type: string, format: uuid }
+                title: { type: string }
+                comment: { type: string }
+      responses:
+        '201':
+          description: Stored as PENDING
+        '400':
+          description: Missing fields or rating out of range
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/pincode/{pincode}:
+    get:
+      tags: [Checkout]
+      summary: Delivery check
+      description: Success is not wrapped in success. source is zone, shiprocket, or default.
+      security: [{ publicApiKey: [] }]
+      parameters:
+        - { name: pincode, in: path, required: true, schema: { type: string, pattern: '^[0-9]{6}$' } }
+      responses:
+        '200':
+          description: Delivery estimate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliverable: { type: boolean }
+                  estimatedDays: { type: integer }
+                  city: { type: string, nullable: true }
+                  state: { type: string, nullable: true }
+                  source: { type: string, enum: [zone, shiprocket, default] }
+        '400':
+          description: Pincode is not 6 digits
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/discount/validate:
+    post:
+      tags: [Checkout]
+      summary: Preview a discount. Does not reserve it.
+      security: [{ publicApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+                orderAmount: { type: number }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Discount preview
+        '400':
+          description: Code is outside its rules
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Unknown or inactive code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/orders:
+    post:
+      tags: [Checkout]
+      summary: Create an order
+      description: |
+        Prices are calculated on the server. Razorpay returns razorpayOrderId and razorpayKeyId.
+        COD returns the order total and status CONFIRMED. Reuse idempotencyKey on retry.
+      security: [{ publicApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrder' }
+      responses:
+        '201':
+          description: Order created
+        '200':
+          description: Existing order returned for a repeated idempotency key
+        '400':
+          description: Validation, stock, or discount failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: Customer token required for a saved address, or the token is invalid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/orders/verify-payment:
+    post:
+      tags: [Checkout]
+      summary: Confirm a Razorpay payment
+      security: [{ publicApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [razorpayOrderId, razorpayPaymentId, razorpaySignature]
+              properties:
+                razorpayOrderId: { type: string }
+                razorpayPaymentId: { type: string }
+                razorpaySignature: { type: string }
+      responses:
+        '200':
+          description: Order is PROCESSING and PAID. A repeat call returns the same success.
+        '400':
+          description: Signature did not match, or fields are missing
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/orders/track/{orderNumber}:
+    get:
+      tags: [Checkout]
+      summary: Track an order
+      description: Without phone or email, only orderNumber and status are returned.
+      security: [{ publicApiKey: [] }]
+      parameters:
+        - { name: orderNumber, in: path, required: true, schema: { type: string } }
+        - { name: phone, in: query, schema: { type: string } }
+        - { name: email, in: query, schema: { type: string, format: email } }
+      responses:
+        '200':
+          description: Status, or full tracking details when phone or email matches
+        '403':
+          description: Phone or email does not match
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Unknown order number
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/enquiries:
+    post:
+      tags: [Content]
+      summary: Submit a contact enquiry
+      security: [{ publicApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, message]
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+                message: { type: string }
+                productId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Enquiry stored
+        '400':
+          description: Missing fields or unknown product
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/tickets:
+    post:
+      tags: [Content]
+      summary: Open a support ticket
+      security: [{ publicApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, subject, message]
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+                subject: { type: string }
+                message: { type: string }
+                orderNumber: { type: string }
+      responses:
+        '201':
+          description: Ticket opened
+        '400':
+          description: Missing fields or unknown order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Phone or email does not match the order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/tickets/{ticketNumber}:
+    get:
+      tags: [Content]
+      summary: Read a support ticket
+      description: Without phone or email, only the ticket number and status are returned.
+      security: [{ publicApiKey: [] }]
+      parameters:
+        - name: ticketNumber
+          in: path
+          required: true
+          schema: { type: string }
+        - name: phone
+          in: query
+          schema: { type: string }
+        - name: email
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Ticket status, or the thread when phone or email matches
+        '403':
+          description: Phone or email does not match
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Unknown ticket
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/public/newsletter:
+    post:
+      tags: [Content]
+      summary: Subscribe an email address
+      security: [{ publicApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                source: { type: string }
+      responses:
+        '200':
+          description: Subscribed, or already subscribed
+        '400':
+          description: Missing or invalid email
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/customer/auth/request-otp:
+    post:
+      tags: [Customer]
+      summary: Email a 6-digit login code
+      responses:
+        '200':
+          description: OTP sent
+        '400':
+          description: Invalid email
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerError' }
+  /api/customer/auth/verify-otp:
+    post:
+      tags: [Customer]
+      summary: Exchange the code for an access token
+      description: Also sets an HttpOnly refresh cookie. Send credentials on later account calls.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              properties:
+                email: { type: string, format: email }
+                otp: { type: string }
+      responses:
+        '200':
+          description: Access token and customer profile
+  /api/customer/auth/refresh:
+    post:
+      tags: [Customer]
+      summary: Rotate the access token using the refresh cookie
+      responses:
+        '200':
+          description: New access token
+        '401':
+          description: Cookie missing or refresh token revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerError' }
+  /api/customer/auth/logout:
+    post:
+      tags: [Customer]
+      summary: Revoke the refresh cookie
+      responses:
+        '200':
+          description: Logged out
+  /api/customer/me:
+    get:
+      tags: [Customer]
+      summary: Signed-in profile
+      security: [{ customerBearer: [] }]
+      responses:
+        '200':
+          description: Profile
+    put:
+      tags: [Customer]
+      summary: Update name and phone
+      security: [{ customerBearer: [] }]
+      responses:
+        '200':
+          description: Updated profile
+  /api/customer/addresses:
+    get:
+      tags: [Customer]
+      summary: Saved addresses
+      security: [{ customerBearer: [] }]
+      responses:
+        '200':
+          description: Address list
+    post:
+      tags: [Customer]
+      summary: Create an address
+      security: [{ customerBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShippingAddress' }
+      responses:
+        '201':
+          description: Created address
+  /api/customer/wishlist:
+    get:
+      tags: [Customer]
+      summary: Wishlist
+      description: price is salePrice or mrp. images contains the cover only. inStock ignores weight stock.
+      security: [{ customerBearer: [] }]
+      responses:
+        '200':
+          description: Wishlist items
+    post:
+      tags: [Customer]
+      summary: Add a product to the wishlist
+      security: [{ customerBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId]
+              properties:
+                productId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Added
