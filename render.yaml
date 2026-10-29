@@ -17,8 +17,7 @@ services:
     plan: free
     region: singapore
     buildCommand: npm install --include=dev && npx prisma generate && npm run build
-    preDeployCommand: npx prisma db push --skip-generate
-    startCommand: npm start
+    startCommand: npx prisma db push --skip-generate && npm start
     healthCheckPath: /health
     autoDeploy: true
     envVars:
