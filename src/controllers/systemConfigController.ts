@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../prismaClient';
 import { clearIntegrationConfigCache } from '../services/integrationConfig';
 import { clearShiprocketAuthCache } from '../services/shiprocketService';
+import { invalidatePublicApiKeyCache } from '../middleware/publicApiKey';
 
 const ALLOWED_KEYS = new Set([
   'razorpay_key_id',
@@ -18,6 +19,7 @@ const ALLOWED_KEYS = new Set([
   'shiprocket_webhook_token',
   'whatsapp_api_key',
   'whatsapp_base_url',
+  'public_api_key',
 ]);
 
 const SECRET_PATTERN = /secret|key|password/i;
@@ -79,6 +81,7 @@ export async function setConfig(req: Request, res: Response): Promise<void> {
     });
     clearIntegrationConfigCache();
     clearShiprocketAuthCache();
+    if (key === 'public_api_key') invalidatePublicApiKeyCache();
 
     res.json({ success: true, data: { key, value: maskValue(key, value) } });
   } catch (err) {
