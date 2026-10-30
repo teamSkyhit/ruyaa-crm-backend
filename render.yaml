@@ -37,6 +37,10 @@ services:
         generateValue: true
       - key: PUBLIC_API_KEY
         generateValue: true
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        value: admin@ruyaaessentials.com
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
       - key: CORS_ORIGINS
         sync: false
       - key: WEBSITE_ORIGIN

@@ -26,6 +26,7 @@ import { sanitizeInputs } from './middleware/sanitize';
 import requestLogger from './middleware/requestLogger';
 import { requestId } from './middleware/requestId';
 import logger from './utils/logger';
+import { bootstrapAdmin } from './bootstrapAdmin';
 import { specs } from './config/swagger';
 
 const app = express();
@@ -142,6 +143,10 @@ app.get('/api/health', (_req: Request, res: Response) =>
 app.use(errorHandler);
 
 const port = process.env.PORT || 8001;
-app.listen(port, () => {
-  logger.info(`Ruyaa Essentials API started on port ${port}`);
-});
+bootstrapAdmin()
+  .catch((error) => logger.error(`Admin bootstrap failed: ${error instanceof Error ? error.message : 'unknown'}`))
+  .finally(() => {
+    app.listen(port, () => {
+      logger.info(`Ruyaa Essentials API started on port ${port}`);
+    });
+  });
