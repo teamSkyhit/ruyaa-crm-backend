@@ -3,6 +3,15 @@ import { Order, OrderItem, Product, Prisma } from '@prisma/client';
 
 type OrderWithItems = Order & { items: (OrderItem & { product: Product | null })[] };
 
+type SiteVars = {
+  brandName: string;
+  logoHtml: string;
+  socialLinksHtml: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: string;
+};
+
 async function getResendConfig(): Promise<{ apiKey: string; fromEmail: string }> {
   const rows = await prisma.systemConfig.findMany({
     where: { key: { in: ['resend_api_key', 'from_email'] } },
@@ -14,7 +23,7 @@ async function getResendConfig(): Promise<{ apiKey: string; fromEmail: string }>
   return { apiKey: map.resend_api_key, fromEmail: map.from_email };
 }
 
-async function getSiteVars(): Promise<Record<string, string>> {
+async function getSiteVars(): Promise<SiteVars> {
   const s = await prisma.siteSettings.findUnique({
     where: { singleton: 'global' },
     select: {
@@ -102,14 +111,7 @@ function interpolate(template: string, vars: Record<string, string>, escapeHtml 
 }
 
 // Standard branded email wrapper used by fallback templates
-function brandedHtml(opts: {
-  logoHtml: string;
-  socialLinksHtml: string;
-  brandName: string;
-  contactEmail: string;
-  contactPhone: string;
-  bodyContent: string;
-}): string {
+function brandedHtml(opts: SiteVars & { bodyContent: string }): string {
   const { logoHtml, socialLinksHtml, brandName, contactEmail, contactPhone, bodyContent } = opts;
   const contactLine = [contactEmail, contactPhone].filter(Boolean).join(' · ');
   return `
