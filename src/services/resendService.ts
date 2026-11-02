@@ -36,6 +36,18 @@ function formatCurrency(amount: Prisma.Decimal | number | string): string {
   return `₹${Number(amount.toString()).toFixed(2)}`;
 }
 
+function esc(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// escapeHtml=true for HTML bodies, false for plain-text subjects
+function interpolate(template: string, vars: Record<string, string>, escapeHtml = true): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const val = vars[key] ?? `{{${key}}}`;
+    return escapeHtml ? esc(val) : val;
+  });
+}
+
 export async function sendOrderConfirmation(order: OrderWithItems): Promise<void> {
   const settings = await prisma.siteSettings.findUnique({
     where: { singleton: 'global' },
@@ -45,6 +57,30 @@ export async function sendOrderConfirmation(order: OrderWithItems): Promise<void
   if (!settings?.orderConfirmationEmailEnabled) return;
 
   const brandName = settings.brandName || 'Ruyaa Essentials';
+
+  // Try DB template first
+  const dbTemplate = await prisma.emailTemplate.findFirst({
+    where: { key: 'order_confirmation', isActive: true },
+  });
+
+  if (dbTemplate) {
+    const vars: Record<string, string> = {
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      total: formatCurrency(order.total),
+      subtotal: formatCurrency(order.subtotal),
+      shippingCharge: order.freeShippingApplied ? 'FREE' : formatCurrency(order.shippingCharge),
+      brandName,
+    };
+    await sendEmail(
+      order.customerEmail,
+      interpolate(dbTemplate.subject, vars, false),
+      interpolate(dbTemplate.bodyHtml, vars, true)
+    );
+    return;
+  }
+
+  // Fallback: hardcoded template
   const itemsHtml = order.items
     .map(
       (item) => `
@@ -291,6 +327,40 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string): P
     </div>
   `;
   await sendEmail(email, 'Reset your Ruyaa Essentials password', html);
+}
+
+export async function sendOtp(email: string, otp: string): Promise<void> {
+  const html = `<p>Your OTP is <strong>${otp}</strong>. It expires in 10 minutes. Do not share it.</p>`;
+  await sendEmail(email, 'Your Ruyaa Essentials OTP', html);
+}
+
+export async function sendLowStockAlert(
+  productName: string,
+  sku: string,
+  currentQty: number,
+  threshold: number
+): Promise<void> {
+  const { apiKey, fromEmail } = await getResendConfig();
+  const adminEmail = process.env.ADMIN_EMAIL || 'nagasatisharigela@gmail.com';
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: adminEmail,
+      subject: `Low Stock Alert: ${productName}`,
+      html: `<p><strong>${productName}</strong> (SKU: ${sku}) is running low.<br/>Current: ${currentQty} | Threshold: ${threshold}</p>`,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Low stock alert email failed: ${error}`);
+  }
 }
 
 export async function sendCustomerOtp(email: string, otp: string): Promise<void> {

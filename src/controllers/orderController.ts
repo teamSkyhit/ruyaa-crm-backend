@@ -3,6 +3,7 @@ import { Prisma, OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/clien
 import prisma from '../prismaClient';
 import { ApiResponse, PaginationMeta } from '../types';
 import { sendShippingUpdate, sendDeliveryConfirmation, sendReviewRequest } from '../services/resendService';
+import { generateInvoicePdf } from '../services/invoiceService';
 import { applyCourierUpdate, bookShipment, getTracking, isShiprocketConfigured, scheduleShipment } from '../services/shiprocketService';
 import * as whatsappService from '../services/whatsappService';
 
@@ -464,3 +465,77 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ success: false, error: 'Failed to fetch dashboard stats' } as ApiResponse);
   }
 };
+
+export async function downloadInvoice(req: Request, res: Response): Promise<void> {
+  try {
+    const { buffer, orderNumber } = await generateInvoicePdf(req.params.id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${orderNumber}.pdf"`);
+    res.send(buffer);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Failed to generate invoice';
+    if (msg === 'Order not found') {
+      res.status(404).json({ success: false, error: msg });
+      return;
+    }
+    console.error('[downloadInvoice]', error);
+    res.status(500).json({ success: false, error: 'Failed to generate invoice' });
+  }
+}
+
+export async function sendInvoiceEmail(req: Request, res: Response): Promise<void> {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { items: { include: { product: true, variant: true } } },
+    });
+    if (!order) {
+      res.status(404).json({ success: false, error: 'Order not found' });
+      return;
+    }
+    const { buffer } = await generateInvoicePdf(req.params.id);
+    // Send via Resend with attachment
+    const { apiKey, fromEmail } = await (async () => {
+      const rows = await prisma.systemConfig.findMany({
+        where: { key: { in: ['resend_api_key', 'from_email'] } },
+      });
+      const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+      if (!map.resend_api_key || !map.from_email) {
+        throw new Error('Resend credentials not configured');
+      }
+      return { apiKey: map.resend_api_key, fromEmail: map.from_email };
+    })();
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: order.customerEmail,
+        subject: `Invoice for order ${order.orderNumber}`,
+        html: `<p>Hi ${order.customerName},</p><p>Please find your invoice for order <strong>${order.orderNumber}</strong> attached.</p><p>Thank you for shopping with Ruyaa Essentials.</p>`,
+        attachments: [
+          {
+            filename: `invoice-${order.orderNumber}.pdf`,
+            content: buffer.toString('base64'),
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Resend error: ${errText}`);
+    }
+
+    res.json({ success: true, message: `Invoice sent to ${order.customerEmail}` });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Failed to send invoice';
+    if (msg === 'Order not found') {
+      res.status(404).json({ success: false, error: msg });
+      return;
+    }
+    console.error('[sendInvoiceEmail]', error);
+    res.status(500).json({ success: false, error: 'Failed to send invoice' });
+  }
+}

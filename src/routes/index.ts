@@ -38,6 +38,8 @@ import reviewRoutes from './reviews';
 // CRM Internals
 import dashboardRoutes from './dashboard';
 import activityRoutes from './activity';
+import analyticsRoutes from './analytics';
+import emailTemplateRoutes from './emailTemplates';
 
 const router = express.Router();
 
@@ -73,6 +75,8 @@ router.use('/reviews', reviewRoutes);
 
 router.use('/dashboard', dashboardRoutes);
 router.use('/activity', activityRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/email-templates', emailTemplateRoutes);
 
 router.get('/', (_req, res) => res.json({ message: 'Ruyaa Essentials API', status: 'ok' }));
 

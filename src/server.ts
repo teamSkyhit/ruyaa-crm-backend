@@ -41,7 +41,7 @@ if (process.env.TRUST_PROXY === '1') {
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
   : [];
-for (const origin of [process.env.WEBSITE_ORIGIN, 'https://ruyaaessentials.com', 'https://www.ruyaaessentials.com']) {
+for (const origin of [process.env.WEBSITE_ORIGIN, process.env.STOREFRONT_URL || 'http://localhost:3000', 'https://ruyaaessentials.com', 'https://www.ruyaaessentials.com']) {
   if (origin && !allowedOrigins.includes(origin)) allowedOrigins.push(origin);
 }
 

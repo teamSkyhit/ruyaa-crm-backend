@@ -112,6 +112,7 @@ const productPublicSelect = {
   licenceNumber: true,
   image: true,
   images: true,
+  gallery: true,
   quantity: true,
   isActive: true,
   showOnWebsite: true,
@@ -1155,10 +1156,14 @@ export async function checkPincode(req: Request, res: Response): Promise<void> {
 
 // ─── FAQS ────────────────────────────────────────────────────────────────────
 
-export async function getFaqs(_req: Request, res: Response): Promise<void> {
+export async function getFaqs(req: Request, res: Response): Promise<void> {
   try {
+    const productId = typeof req.query.productId === 'string' ? req.query.productId : undefined;
+    const where: Prisma.FaqWhereInput = productId
+      ? { isActive: true, OR: [{ productId }, { productId: null }] }
+      : { isActive: true };
     const faqs = await prisma.faq.findMany({
-      where: { isActive: true },
+      where,
       select: {
         id: true,
         question: true,

@@ -9,6 +9,8 @@ import {
   sendOrderReviewRequest,
   refreshOrderTracking,
   bookOrderShipment,
+  downloadInvoice,
+  sendInvoiceEmail,
 } from '../controllers/orderController';
 import { authMiddleware, adminOnly } from '../middleware/auth';
 
@@ -23,5 +25,7 @@ router.patch('/:id/cancel', authMiddleware, adminOnly, cancelOrder);
 router.post('/:id/send-review-request', authMiddleware, adminOnly, sendOrderReviewRequest);
 router.post('/:id/tracking/refresh', authMiddleware, adminOnly, refreshOrderTracking);
 router.post('/:id/shipment', authMiddleware, adminOnly, bookOrderShipment);
+router.get('/:id/invoice', authMiddleware, adminOnly, downloadInvoice);
+router.post('/:id/send-invoice', authMiddleware, adminOnly, sendInvoiceEmail);
 
 export default router;
