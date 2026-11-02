@@ -86,6 +86,7 @@ export const listOrders = async (req: Request, res: Response): Promise<void> => 
           shippedAt: true,
           deliveredAt: true,
           cancelledAt: true,
+          channel: true,
           trackingNumber: true,
           createdAt: true,
           updatedAt: true,

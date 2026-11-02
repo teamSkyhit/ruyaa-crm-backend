@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, adminOnly } from '../middleware/auth';
 import { getActivityLogs } from '../controllers/activityController';
 
 const router = Router();
 
-router.get('/', authMiddleware, getActivityLogs);
+router.get('/', authMiddleware, adminOnly, getActivityLogs);
 
 export default router;
