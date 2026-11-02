@@ -540,3 +540,111 @@ export async function sendInvoiceEmail(req: Request, res: Response): Promise<voi
     res.status(500).json({ success: false, error: 'Failed to send invoice' });
   }
 }
+
+const POS_PAYMENT_METHODS = ['CASH', 'UPI', 'CARD', 'COD', 'RAZORPAY'] as const;
+
+export async function createPosOrder(req: Request, res: Response): Promise<void> {
+  try {
+    const body = req.body as {
+      customerName: string;
+      customerEmail?: string;
+      customerPhone: string;
+      shippingAddress: { name?: string; phone?: string; line1: string; line2?: string; city: string; state: string; pincode: string };
+      items: Array<{ productId: string; variantId?: string; quantity: number; price?: number }>;
+      paymentMethod: string;
+      notes?: string;
+    };
+
+    if (!body.customerName || !body.customerPhone || !body.paymentMethod || !Array.isArray(body.items) || body.items.length === 0) {
+      res.status(400).json({ success: false, error: 'customerName, customerPhone, paymentMethod and items are required' });
+      return;
+    }
+    if (!POS_PAYMENT_METHODS.includes(body.paymentMethod as any)) {
+      res.status(400).json({ success: false, error: `Invalid paymentMethod. Use: ${POS_PAYMENT_METHODS.join(', ')}` });
+      return;
+    }
+
+    const addr = body.shippingAddress ?? {};
+    if (!addr.line1 || !addr.city || !addr.state || !addr.pincode) {
+      res.status(400).json({ success: false, error: 'shippingAddress (line1, city, state, pincode) is required' });
+      return;
+    }
+
+    const productIds = [...new Set(body.items.map((i) => i.productId))];
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      include: { variants: { where: { isActive: true }, select: { id: true, name: true, price: true, sku: true, quantity: true } } },
+    });
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    const variantIds = body.items.map((i) => i.variantId).filter((id): id is string => Boolean(id));
+    const variants = variantIds.length
+      ? await prisma.productVariant.findMany({ where: { id: { in: variantIds } } })
+      : [];
+    const variantMap = new Map(variants.map((v) => [v.id, v]));
+
+    type Line = { productId: string; variantId: string | null; quantity: number; unitPrice: number; productName: string; productSku: string; productImage: string | null; productSlug: string; stockTarget: 'product' | 'variant' };
+    const lines: Line[] = [];
+
+    for (const item of body.items) {
+      const product = productMap.get(item.productId);
+      const quantity = Number(item.quantity);
+      if (!product || !Number.isInteger(quantity) || quantity < 1) {
+        res.status(400).json({ success: false, error: `Invalid product or quantity for id: ${item.productId}` });
+        return;
+      }
+      if (item.variantId) {
+        const variant = variantMap.get(item.variantId);
+        if (!variant) { res.status(400).json({ success: false, error: `Variant not found: ${item.variantId}` }); return; }
+        lines.push({ productId: product.id, variantId: variant.id, quantity, unitPrice: item.price ?? Number(variant.price), productName: `${product.name} — ${variant.name}`, productSku: (variant.sku || product.sku).slice(0, 20), productImage: product.image, productSlug: product.slug, stockTarget: 'variant' });
+      } else {
+        lines.push({ productId: product.id, variantId: null, quantity, unitPrice: item.price ?? Number(product.salePrice ?? product.mrp), productName: product.name, productSku: product.sku, productImage: product.image, productSlug: product.slug, stockTarget: 'product' });
+      }
+    }
+
+    const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+    const orderNumber = `POS-${Date.now().toString(36).toUpperCase()}`;
+
+    const order = await prisma.$transaction(async (tx) => {
+      for (const line of lines) {
+        const affected = line.stockTarget === 'variant' && line.variantId
+          ? await tx.$executeRaw`UPDATE product_variants SET quantity = quantity - ${line.quantity} WHERE id = ${line.variantId}::uuid AND quantity >= ${line.quantity}`
+          : await tx.$executeRaw`UPDATE products SET quantity = quantity - ${line.quantity} WHERE id = ${line.productId}::uuid AND quantity >= ${line.quantity}`;
+        if (affected === 0) throw new Error(`Out of stock: ${line.productName}`);
+      }
+      return tx.order.create({
+        data: {
+          orderNumber,
+          channel: 'POS',
+          customerName: body.customerName,
+          customerEmail: body.customerEmail ?? '',
+          customerPhone: body.customerPhone,
+          shippingFullName: addr.name ?? body.customerName,
+          shippingPhone: addr.phone ?? body.customerPhone,
+          shippingAddressLine1: addr.line1,
+          shippingAddressLine2: addr.line2 ?? null,
+          shippingCity: addr.city,
+          shippingState: addr.state,
+          shippingPincode: addr.pincode,
+          customerNotes: body.notes ?? null,
+          subtotal,
+          discount: 0,
+          shippingCharge: 0,
+          total: subtotal,
+          paymentMethod: body.paymentMethod as PaymentMethod,
+          paymentStatus: PaymentStatus.PAID,
+          status: OrderStatus.CONFIRMED,
+          items: { create: lines.map((l) => ({ productId: l.productId, variantId: l.variantId, productName: l.productName, productSku: l.productSku, productImage: l.productImage, productSlug: l.productSlug, quantity: l.quantity, unitPrice: l.unitPrice, subtotal: l.unitPrice * l.quantity })) },
+        },
+        include: { items: true },
+      });
+    });
+
+    res.status(201).json({ success: true, data: { order: { id: order.id, orderNumber: order.orderNumber, total: order.total, status: order.status } } });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Failed to create POS order';
+    if (msg.startsWith('Out of stock')) { res.status(400).json({ success: false, error: msg }); return; }
+    console.error('[createPosOrder]', error);
+    res.status(500).json({ success: false, error: 'Failed to create POS order' });
+  }
+}

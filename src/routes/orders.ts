@@ -11,11 +11,13 @@ import {
   bookOrderShipment,
   downloadInvoice,
   sendInvoiceEmail,
+  createPosOrder,
 } from '../controllers/orderController';
 import { authMiddleware, adminOnly } from '../middleware/auth';
 
 const router = Router();
 
+router.post('/', authMiddleware, adminOnly, createPosOrder);
 router.get('/', authMiddleware, listOrders);
 router.get('/:id', authMiddleware, getOrder);
 router.patch('/:id/status', authMiddleware, adminOnly, updateOrderStatus);
