@@ -387,6 +387,33 @@ export async function deleteProduct(req: Request, res: Response): Promise<void> 
   }
 }
 
+export async function toggleActive(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const product = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true, name: true, isActive: true },
+    });
+    if (!product) {
+      res.status(404).json({ success: false, error: 'Product not found' });
+      return;
+    }
+    const updated = await prisma.product.update({
+      where: { id },
+      data: { isActive: !product.isActive },
+      include: productInclude,
+    });
+    res.json({
+      success: true,
+      data: updated,
+      message: `Product is now ${updated.isActive ? 'active' : 'inactive'}`,
+    });
+  } catch (error) {
+    console.error('Error toggling active:', error);
+    res.status(500).json({ success: false, error: 'Failed to toggle active status' });
+  }
+}
+
 export async function toggleWebsiteVisibility(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;

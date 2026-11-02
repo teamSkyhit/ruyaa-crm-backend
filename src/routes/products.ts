@@ -8,6 +8,7 @@ import {
   updateProduct,
   deleteProduct,
   toggleWebsiteVisibility,
+  toggleActive,
   updateStock,
 } from '../controllers/productController';
 
@@ -27,6 +28,9 @@ router.put('/:id', authMiddleware, adminOnly, updateProduct);
 
 // DELETE /:id  — delete or deactivate
 router.delete('/:id', authMiddleware, adminOnly, deleteProduct);
+
+// PATCH /:id/toggle-active  — toggle isActive
+router.patch('/:id/toggle-active', authMiddleware, adminOnly, toggleActive);
 
 // PATCH /:id/visibility  — toggle showOnWebsite
 router.patch('/:id/visibility', authMiddleware, adminOnly, toggleWebsiteVisibility);
