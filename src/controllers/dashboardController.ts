@@ -153,6 +153,15 @@ export async function getStats(req: Request, res: Response): Promise<void> {
     res.json({
       success: true,
       data: {
+        orders: {
+          byStatus: isAdmin ? statusMap : {},
+          today: ordersToday,
+          thisWeek: ordersThisWeek,
+        },
+        products: {
+          totalActive: totalActiveProducts,
+          ...(isAdmin ? { lowStock } : {}),
+        },
         ...(isAdmin ? {
           revenue: {
             today: Number(revToday._sum.total ?? 0),
@@ -161,22 +170,13 @@ export async function getStats(req: Request, res: Response): Promise<void> {
             allTime: Number(revAllTime._sum.total ?? 0),
           },
           dailyRevenue,
+          recentOrders,
           topProducts: topProducts.map((p) => ({
             productId: p.productId,
             productName: p.productName,
             totalQuantity: p._sum.quantity ?? 0,
           })),
         } : {}),
-        orders: {
-          byStatus: statusMap,
-          today: ordersToday,
-          thisWeek: ordersThisWeek,
-        },
-        products: {
-          totalActive: totalActiveProducts,
-          lowStock,
-        },
-        recentOrders,
       },
     });
   } catch (err) {
