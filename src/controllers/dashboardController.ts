@@ -148,15 +148,25 @@ export async function getStats(req: Request, res: Response): Promise<void> {
       statusMap[row.status] = row._count._all;
     }
 
+    const isAdmin = req.user?.role === 'ADMIN';
+
     res.json({
       success: true,
       data: {
-        revenue: {
-          today: Number(revToday._sum.total ?? 0),
-          thisWeek: Number(revWeek._sum.total ?? 0),
-          thisMonth: Number(revMonth._sum.total ?? 0),
-          allTime: Number(revAllTime._sum.total ?? 0),
-        },
+        ...(isAdmin ? {
+          revenue: {
+            today: Number(revToday._sum.total ?? 0),
+            thisWeek: Number(revWeek._sum.total ?? 0),
+            thisMonth: Number(revMonth._sum.total ?? 0),
+            allTime: Number(revAllTime._sum.total ?? 0),
+          },
+          dailyRevenue,
+          topProducts: topProducts.map((p) => ({
+            productId: p.productId,
+            productName: p.productName,
+            totalQuantity: p._sum.quantity ?? 0,
+          })),
+        } : {}),
         orders: {
           byStatus: statusMap,
           today: ordersToday,
@@ -167,12 +177,6 @@ export async function getStats(req: Request, res: Response): Promise<void> {
           lowStock,
         },
         recentOrders,
-        topProducts: topProducts.map((p) => ({
-          productId: p.productId,
-          productName: p.productName,
-          totalQuantity: p._sum.quantity ?? 0,
-        })),
-        dailyRevenue,
       },
     });
   } catch (err) {

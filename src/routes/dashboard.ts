@@ -4,6 +4,6 @@ import { getStats } from '../controllers/dashboardController';
 
 const router = Router();
 
-router.get('/', authMiddleware, adminOnly, getStats);
+router.get('/', authMiddleware, getStats);
 
 export default router;

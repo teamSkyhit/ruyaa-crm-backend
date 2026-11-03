@@ -97,6 +97,11 @@ export async function login(req: Request, res: Response): Promise<void> {
     const expiresAt = new Date(Date.now() + REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
 
     await prisma.$transaction([
+      // Revoke all previous sessions for this user so only one active session exists
+      prisma.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
       prisma.refreshToken.create({ data: { tokenHash, userId: user.id, expiresAt } }),
       prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null } }),
     ]);
