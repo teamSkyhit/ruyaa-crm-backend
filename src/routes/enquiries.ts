@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authMiddleware, adminOnly } from '../middleware/auth';
+import { authMiddleware, requireRole } from '../middleware/auth';
 import {
   listEnquiries,
   getEnquiry,
@@ -10,13 +10,14 @@ import {
 import { createTicketFromEnquiry } from '../controllers/ticketController';
 
 const router = Router();
+const staffOrAdmin = requireRole(['admin', 'user']);
 
 router.get('/', authMiddleware, listEnquiries);
 router.get('/:id', authMiddleware, getEnquiry);
-router.patch('/:id/status', authMiddleware, adminOnly, updateStatus);
-router.patch('/:id/notes', authMiddleware, adminOnly, addNotes);
+router.patch('/:id/status', authMiddleware, staffOrAdmin, updateStatus);
+router.patch('/:id/notes', authMiddleware, staffOrAdmin, addNotes);
 // Combined update kept for backward compatibility
-router.put('/:id', authMiddleware, adminOnly, updateEnquiry);
-router.post('/:id/ticket', authMiddleware, adminOnly, createTicketFromEnquiry);
+router.put('/:id', authMiddleware, staffOrAdmin, updateEnquiry);
+router.post('/:id/ticket', authMiddleware, staffOrAdmin, createTicketFromEnquiry);
 
 export default router;
