@@ -4,8 +4,8 @@ import { authMiddleware as authenticate, adminOnly } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', authenticate, adminOnly, getAll);
-router.get('/:id', authenticate, adminOnly, getOne);
+router.get('/', authenticate, getAll);
+router.get('/:id', authenticate, getOne);
 router.post('/', authenticate, adminOnly, create);
 router.put('/:id', authenticate, adminOnly, update);
 router.delete('/:id', authenticate, adminOnly, remove);
