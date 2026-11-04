@@ -2,6 +2,12 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prismaClient';
 
+// Accept YYYY-MM-DD, full ISO datetime, or empty/null — coerce to Date for Prisma
+const dateOrNull = z.preprocess(
+  (v) => (v === '' || v == null ? null : v),
+  z.coerce.date().nullable().optional()
+);
+
 const createSchema = z.object({
   title: z.string().max(255).optional(),
   subtitle: z.string().optional(),
@@ -11,8 +17,8 @@ const createSchema = z.object({
   ctaUrl: z.string().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
-  validFrom: z.string().datetime().optional().nullable(),
-  validUntil: z.string().datetime().optional().nullable(),
+  validFrom: dateOrNull,
+  validUntil: dateOrNull,
 });
 
 const updateSchema = createSchema.partial();
