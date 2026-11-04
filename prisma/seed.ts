@@ -43,7 +43,11 @@ async function main() {
   });
   console.log(`SiteSettings: ${settings.brandName}`);
 
-  // Category
+  // Category + Products — only seed on a fresh DB (skip if any products exist)
+  const existingProductCount = await prisma.product.count();
+  if (existingProductCount > 0) {
+    console.log(`Skipping category/product seed — ${existingProductCount} products already in DB.`);
+  } else {
   const category = await prisma.category.upsert({
     where: { slug: 'handcrafted-soaps' },
     update: {},
@@ -200,6 +204,7 @@ async function main() {
     });
     console.log(`Product: ${product.name} (${product.sku})`);
   }
+  } // end if (existingProductCount === 0)
 
   // SystemConfig: public API key for storefront endpoints
   const publicApiKey = process.env.PUBLIC_API_KEY;
