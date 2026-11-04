@@ -1,14 +1,16 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, requireRole } from '../middleware/auth';
 import { listSubscribers, toggleSubscriber, exportCSV, broadcastNewsletter } from '../controllers/newsletterController';
 
 const router = Router();
 
-// /export must come before /:id/toggle
-router.get('/export', authMiddleware, exportCSV);
+const staffOrAdmin = requireRole(['admin', 'user']);
 
-router.get('/', authMiddleware, listSubscribers);
-router.post('/broadcast', authMiddleware, broadcastNewsletter);
-router.patch('/:id/toggle', authMiddleware, toggleSubscriber);
+// /export must come before /:id/toggle
+router.get('/export', authMiddleware, staffOrAdmin, exportCSV);
+
+router.get('/', authMiddleware, staffOrAdmin, listSubscribers);
+router.post('/broadcast', authMiddleware, staffOrAdmin, broadcastNewsletter);
+router.patch('/:id/toggle', authMiddleware, staffOrAdmin, toggleSubscriber);
 
 export default router;

@@ -76,4 +76,19 @@ function adminOnly(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-export { authMiddleware, adminOnly };
+function requireRole(roles: string[]) {
+  const upper = roles.map((r) => r.toUpperCase());
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+    if (!upper.includes(req.user.role.toUpperCase())) {
+      res.status(403).json({ success: false, error: 'Forbidden' });
+      return;
+    }
+    next();
+  };
+}
+
+export { authMiddleware, adminOnly, requireRole };
