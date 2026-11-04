@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc && tsc -p tsconfig.seed.json",
+    "build": "tsc && tsc -p tsconfig.seed.json && node dist/prisma/seed.js",
     "start": "node dist/server.js",
     "seed:prod": "node dist/prisma/seed.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
