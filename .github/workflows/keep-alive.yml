@@ -11,9 +11,14 @@ jobs:
     steps:
       - name: Ping health endpoint
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://ruyaa-api.onrender.com/health)
-          echo "Health check status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "WARNING: Health check returned $STATUS"
-            exit 1
-          fi
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://ruyaa-api.onrender.com/health)
+            echo "Attempt $i: Health check status: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Server is awake."
+              exit 0
+            fi
+            echo "Not ready yet, retrying in 20s..."
+            sleep 20
+          done
+          echo "WARNING: Server did not return 200 after 3 attempts (last status: $STATUS). It may still be warming up."
